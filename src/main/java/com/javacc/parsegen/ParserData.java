@@ -71,13 +71,10 @@ import com.javacc.parser.tree.ZeroOrOneRegexp;
  */
 public class ParserData {
 
-    private Grammar grammar;
+    private final Grammar grammar;
 
-    private LexerData lexerData;
+    private final LexerData lexerData;
     private int gensymindex;
-
-    private List<MatchInfo> sizeLimitedMatches;
-
     /**
      * These lists are used to maintain the lists of lookaheads and expansions 
      * for which code generation in phase 2 and phase 3 is required. 
@@ -776,10 +773,11 @@ public class ParserData {
         MatchInfo[] overlapInfo = new MatchInfo[choices.size() - 1];
         int[] other = new int[choices.size() - 1];
 
+        boolean considerSemLa = !grammar.getOptions().getForceLaCheck();
         for (int la = 1; la <= grammar.getOptions().getChoiceAmbiguityCheck(); la++) {
             // first to last - 1
             for (int i = first; i < choices.size() - 1; i++) {
-                dbl.set(i, generateFirstSet(choices.get(i), la, !grammar.getOptions().getForceLaCheck()));
+                dbl.set(i, generateFirstSet(choices.get(i), la, considerSemLa));
             }
             // first + 1 to last
             for (int i = first + 1; i < choices.size(); i++) {
@@ -819,7 +817,7 @@ public class ParserData {
 
         for (int i = first; i < choices.size() - 1; i++) {
             Expansion e = choices.get(i);
-            if (explicitLookahead(e) && !grammar.getOptions().getForceLaCheck()) {
+            if (considerSemLa && explicitLookahead(e)) {
                 continue;
             }
             int minla = minLA[i];
@@ -1051,15 +1049,6 @@ public class ParserData {
         }
     }
 
-    public static <U> void partitionInto(List<U> toSplit, List<U> mask, List<U> partInMask, List<U> rest) {
-        for (U u : toSplit) {
-            if (mask.contains(u))
-                partInMask.add(u);
-            else
-                rest.add(u);
-        }
-    }
-
     List<MatchInfo> generateFollowSet(List<MatchInfo> prefixes, Expansion exp, List<MatchInfo> overflowedMatches, long generation, int limit) {
         if (exp.myGeneration == generation) {
             return Collections.emptyList();
@@ -1133,6 +1122,15 @@ public class ParserData {
         List<MatchInfo> retval = new ArrayList<>(diff);
         retval.addAll(inter);
         return retval;
+    }
+
+    private static <U> void partitionInto(List<U> toSplit, List<U> mask, List<U> partInMask, List<U> rest) {
+        for (U u : toSplit) {
+            if (mask.contains(u))
+                partInMask.add(u);
+            else
+                rest.add(u);
+        }
     }
 
     /**

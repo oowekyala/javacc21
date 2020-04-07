@@ -138,21 +138,40 @@ public class JavaFormatter {
                 buf.append(currentToken);
                 newLine();
                 break;
-            case SINGLE_LINE_COMMENT : 
+            case SINGLE_LINE_COMMENT :
                 handleSingleLineComment();
                 break;
-            case FOR : 
+            case FOR :
             	buf.append("for ");
             	break;
             case AT :
             	newLine();
             	buf.append("@");
             	break;
+            case EQ :
+            case NE :
+            case NEW :
+            case PLUS :
+            case SC_OR :
+            case SC_AND :
+            case MINUS :
+            case ASSIGN :
+            case MINUSASSIGN :
+            case PLUSASSIGN :
+                if (buf.length() > 0 && buf.charAt(buf.length() - 1) != ' ') {
+                    buf.append(' ');
+                }
+                buf.append(currentToken);
+                buf.append(' ');
+                break;
+            case COMMA :
+                buf.append(", ");
+                break;
             default:
                 if (buf.length() > 0) {
                     char lastChar = buf.charAt(buf.length() -1);
                     char thisChar = currentToken.toString().charAt(0);
-                    if ((Character.isJavaIdentifierPart(lastChar) || lastChar == ')' || lastChar == ']') 
+                    if ((Character.isJavaIdentifierPart(lastChar) || lastChar == ')' || lastChar == ']')
                             && Character.isJavaIdentifierPart(thisChar)) {
                         buf.append(' ');
                     }
