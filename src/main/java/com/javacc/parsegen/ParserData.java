@@ -30,7 +30,12 @@
 
 package com.javacc.parsegen;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 import com.javacc.Grammar;
 import com.javacc.MetaParseException;
@@ -39,7 +44,25 @@ import com.javacc.lexgen.LexicalState;
 import com.javacc.lexgen.RegularExpression;
 import com.javacc.parser.Node;
 import com.javacc.parser.ParseException;
-import com.javacc.parser.tree.*;
+import com.javacc.parser.tree.BNFProduction;
+import com.javacc.parser.tree.ExpansionChoice;
+import com.javacc.parser.tree.ExpansionSequence;
+import com.javacc.parser.tree.ExplicitLookahead;
+import com.javacc.parser.tree.NonTerminal;
+import com.javacc.parser.tree.OneOrMore;
+import com.javacc.parser.tree.OneOrMoreRegexp;
+import com.javacc.parser.tree.RegexpChoice;
+import com.javacc.parser.tree.RegexpRef;
+import com.javacc.parser.tree.RegexpSequence;
+import com.javacc.parser.tree.RegexpSpec;
+import com.javacc.parser.tree.RegexpStringLiteral;
+import com.javacc.parser.tree.RepetitionRange;
+import com.javacc.parser.tree.TokenProduction;
+import com.javacc.parser.tree.TryBlock;
+import com.javacc.parser.tree.ZeroOrMore;
+import com.javacc.parser.tree.ZeroOrMoreRegexp;
+import com.javacc.parser.tree.ZeroOrOne;
+import com.javacc.parser.tree.ZeroOrOneRegexp;
 
 /**
  * This class holds the remains of all the most icky legacy code that is used to build up the data
@@ -126,7 +149,7 @@ public class ParserData {
                 boolean addChar = buf.length() == 0 ? (Character.isJavaIdentifierStart(c)) : Character.isJavaIdentifierPart(c);
                 if (addChar) {
                     buf.append(c);
-                } 
+                }
                 if (c == '.') buf.append((char) '_');
             }
             return buf.toString();
@@ -154,7 +177,7 @@ public class ParserData {
     };
 
     /**
-     * A visitor that checks whether there is a self-referential loop in a 
+     * A visitor that checks whether there is a self-referential loop in a
      * Regexp reference. It is a much more terse, readable replacement
      * for some ugly legacy code.
      * @author revusky
@@ -247,9 +270,9 @@ public class ParserData {
 
 
         /*
-         * Check whether we have any LOOKAHEADs at non-choice points 
+         * Check whether we have any LOOKAHEADs at non-choice points
          * REVISIT: Why is this not handled in the grammar spec?
-         * The legacy code had some kind of very complex munging going on 
+         * The legacy code had some kind of very complex munging going on
          * in these cases, but serious analysis seems to show that it was not something
          * of any real value.
          */
@@ -257,10 +280,10 @@ public class ParserData {
         for (ExpansionSequence sequence : grammar.descendantsOfType(ExpansionSequence.class)) {
             Lookahead lookahead = sequence.getLookahead();
             Node parent = sequence.getParent();
-            if (!(parent instanceof ExpansionChoice 
-                    || parent instanceof OneOrMore 
-                    || parent instanceof ZeroOrOne 
-                    || parent instanceof ZeroOrMore) 
+            if (!(parent instanceof ExpansionChoice
+                    || parent instanceof OneOrMore
+                    || parent instanceof ZeroOrOne
+                    || parent instanceof ZeroOrMore)
                     && lookahead instanceof ExplicitLookahead) {
                 grammar.addSemanticError(lookahead, "Encountered LOOKAHEAD(...) at a non-choice location." );
             }
@@ -283,7 +306,7 @@ public class ParserData {
          * USER_DEFINED_LEXER is set to true. In this case, <name> occurrences
          * are OK, while regular expression specs generate a warning.
          */
-        for (TokenProduction tp: grammar.descendantsOfType(TokenProduction.class)) { 
+        for (TokenProduction tp: grammar.descendantsOfType(TokenProduction.class)) {
             for (RegexpSpec res : tp.getRegexpSpecs()) {
                 if (res.getNextState() != null) {
                     if (lexerData.getLexicalStateIndex(res.getNextState()) == -1) {
@@ -318,7 +341,7 @@ public class ParserData {
          * "named_tokens_table" and "ordered_named_tokens". Duplications are
          * flagged as errors.
          */
-        for (TokenProduction tp : grammar.descendantsOfType(TokenProduction.class)) { 
+        for (TokenProduction tp : grammar.descendantsOfType(TokenProduction.class)) {
             List<RegexpSpec> respecs = tp.getRegexpSpecs();
             for (RegexpSpec res : respecs) {
                 RegularExpression re = res.getRegexp();
@@ -330,7 +353,7 @@ public class ParserData {
                         grammar.addSemanticError(res.getRegexp(),
                                 "Multiply defined lexical token name \"" + s
                                 + "\".");
-                    } 
+                    }
                     if (lexerData.getLexicalStateIndex(s) != -1) {
                         grammar.addSemanticError(res.getRegexp(),
                                 "Lexical token name \"" + s
@@ -351,7 +374,7 @@ public class ParserData {
          * code also numbers all regular expressions (by setting their ordinal
          * values), and populates the table "names_of_tokens".
          */
-        //        	 for (TokenProduction tp: grammar.descendantsOfType(TokenProduction.class)) { 
+        //        	 for (TokenProduction tp: grammar.descendantsOfType(TokenProduction.class)) {
         // Cripes, for some reason this is order dependent!
         for (TokenProduction tp : grammar.getAllTokenProductions()) {
             List<RegexpSpec> respecs = tp.getRegexpSpecs();
@@ -535,8 +558,8 @@ public class ParserData {
                         grammar.addSemanticError(ref, "Token name \"" + label + "\" refers to a private (with a #) regular expression.");
                     }   else if (!referenced.tpContext.getKind().equals("TOKEN")) {
                         grammar.addSemanticError(ref, "Token name \"" + label + "\" refers to a non-token (SKIP, MORE, IGNORE_IN_BNF) regular expression.");
-                    } 
-                } 
+                    }
+                }
             }
             for (TokenProduction tp : grammar.descendantsOfType(TokenProduction.class)) {
                 for (RegexpRef ref : tp.descendantsOfType(RegexpRef.class)) {
@@ -650,7 +673,7 @@ public class ParserData {
                 }
             }
 
-        } 
+        }
         if (grammar.getErrorCount() != 0) {
             throw new MetaParseException();
         }
@@ -734,7 +757,7 @@ public class ParserData {
         }
     }
 
-    private void choiceCalc(ExpansionChoice ch) {
+ 	private void choiceCalc(ExpansionChoice ch) {
         int first = firstChoice(ch);
         // dbl[i] and dbr[i] are vectors of size limited matches for choice i
         // of ch. dbl ignores matches with semantic lookaheads (when
@@ -744,12 +767,9 @@ public class ParserData {
         // List<MatchInfo>[] dbr = new List[ch.getChoices().size()];
         List<Expansion> choices = ch.getChoices();
         int numChoices = choices.size();
-        List<List<MatchInfo>> dbl = new ArrayList<List<MatchInfo>>(numChoices);
-        List<List<MatchInfo>> dbr = new ArrayList<List<MatchInfo>>(numChoices);
-        for (int i = 0; i < numChoices; i++) {
-            dbl.add(null);
-            dbr.add(null);
-        }
+        List<List<MatchInfo>> dbl = new ArrayList<>(Collections.nCopies(numChoices, null));
+        List<List<MatchInfo>> dbr = new ArrayList<>(Collections.nCopies(numChoices, null));
+
         int[] minLA = new int[choices.size() - 1];
         MatchInfo[] overlapInfo = new MatchInfo[choices.size() - 1];
         int[] other = new int[choices.size() - 1];
@@ -760,35 +780,23 @@ public class ParserData {
             grammar.setLookaheadLimit(la);
             grammar.setConsiderSemanticLA(!grammar.getOptions().getForceLaCheck());
             for (int i = first; i < choices.size() - 1; i++) {
-                sizeLimitedMatches = new ArrayList<MatchInfo>();
-                m = new MatchInfo(grammar.getLookaheadLimit());
-                m.firstFreeLoc = 0;
-                List<MatchInfo> partialMatches = new ArrayList<MatchInfo>();
-                partialMatches.add(m);
-                generateFirstSet(partialMatches, choices.get(i));
-                dbl.set(i, sizeLimitedMatches);
+                initSizeLimitedMatches(choices, dbl, i);
             }
             grammar.setConsiderSemanticLA(false);
             for (int i = first + 1; i < choices.size(); i++) {
-                sizeLimitedMatches = new ArrayList<MatchInfo>();
-                m = new MatchInfo(grammar.getLookaheadLimit());
-                m.firstFreeLoc = 0;
-                List<MatchInfo> partialMatches = new ArrayList<MatchInfo>();
-                partialMatches.add(m);
-                generateFirstSet(partialMatches, choices.get(i));
-                dbr.set(i, sizeLimitedMatches);
+                initSizeLimitedMatches(choices, dbr, i);
             }
             if (la == 1) {
                 for (int i = first; i < choices.size() - 1; i++) {
                     Expansion exp = choices.get(i);
                     if (exp.isPossiblyEmpty()) {
                         grammar
-                        .addWarning(
-                                exp,
-                                "This choice can expand to the empty token sequence "
-                                        + "and will therefore always be taken in favor of the choices appearing later.");
+                                .addWarning(
+                                        exp,
+                                        "This choice can expand to the empty token sequence "
+                                                + "and will therefore always be taken in favor of the choices appearing later.");
                         break;
-                    } 
+                    }
                 }
             }
             overlapDetected = false;
@@ -819,7 +827,7 @@ public class ParserData {
                 System.err.print(", column " + (choices.get(other[i])).getBeginColumn());
                 System.err.println(" respectively.");
                 System.err
-                .println("         A common prefix is: " + image(overlapInfo[i]));
+                        .println("         A common prefix is: " + image(overlapInfo[i]));
                 System.err.println("         Consider using a lookahead of " + minLA[i] + " or more for earlier expansion.");
             } else if (minLA[i] > 1) {
                 grammar.addWarning(null, "Choice conflict involving two expansions at");
@@ -834,6 +842,16 @@ public class ParserData {
         }
     }
 
+    private void initSizeLimitedMatches(List<Expansion> choices, List<List<MatchInfo>> dbl, int i) {
+        sizeLimitedMatches = new ArrayList<>();
+        MatchInfo m = new MatchInfo(grammar.getLookaheadLimit());
+        m.firstFreeLoc = 0;
+        List<MatchInfo> partialMatches = new ArrayList<>();
+        partialMatches.add(m);
+        generateFirstSet(partialMatches, choices.get(i), sizeLimitedMatches, grammar.getLookaheadLimit(), stopOnSemLa);
+        dbl.set(i, sizeLimitedMatches);
+    }
+
     boolean explicitLookahead(Expansion exp) {
         if (!(exp instanceof ExpansionSequence)) {
             return false;
@@ -845,8 +863,8 @@ public class ParserData {
             return false;
         }
         return seq.getLookahead() instanceof ExplicitLookahead;
-//        Expansion e = seq.firstChildOfType(Expansion.class);
-//        return e instanceof ExplicitLookahead;
+//Expansion e = seq.firstChildOfType(Expansion.class);
+        //return e instanceof ExplicitLookahead;
     }
 
     int firstChoice(ExpansionChoice ch) {
@@ -867,7 +885,7 @@ public class ParserData {
             return "(...)+";
         } else if (exp instanceof ZeroOrMore) {
             return "(...)*";
-        } else /* if (exp instanceof ZeroOrOne) */{
+        } else /* if (exp instanceof ZeroOrOne) */ {
             return "[...]";
         }
     }
@@ -878,17 +896,12 @@ public class ParserData {
         List<MatchInfo> partialMatches = new ArrayList<>();
         int la;
         for (la = 1; la <= grammar.getOptions().getOtherAmbiguityCheck(); la++) {
-            grammar.setLookaheadLimit(la);
-            sizeLimitedMatches = new ArrayList<MatchInfo>();
-            m = new MatchInfo(la);
-            m.firstFreeLoc = 0;
-            partialMatches.add(m);
-            grammar.setConsiderSemanticLA(!grammar.getOptions().getForceLaCheck());
-            generateFirstSet(partialMatches, nested);
-            List<MatchInfo> first = sizeLimitedMatches;
-            sizeLimitedMatches = new ArrayList<MatchInfo>();
+
+            List<MatchInfo> first = generateFirstSet(nested, la, !grammar.getOptions().getForceLaCheck());
+            List<MatchInfo> sizeLimitedMatches = new ArrayList<>();
             grammar.setConsiderSemanticLA(false);
             generateFollowSet(partialMatches, exp, grammar.nextGenerationIndex());
+
             List<MatchInfo> follow = sizeLimitedMatches;
             if ((m = overlap(first, follow)) == null) {
                 break;
@@ -899,7 +912,7 @@ public class ParserData {
             grammar.addWarning(exp, "Choice conflict in " + image(exp) + " construct " + "at line "
                     + exp.getBeginLine() + ", column " + exp.getBeginColumn() + ".");
             System.err
-            .println("         Expansion nested within construct and expansion following construct");
+                    .println("         Expansion nested within construct and expansion following construct");
             System.err.println("         have common prefixes, one of which is: "
                     + image(m1));
             System.err.println("         Consider using a lookahead of " + la
@@ -908,101 +921,157 @@ public class ParserData {
             grammar.addWarning(exp, "Choice conflict in " + image(exp) + " construct " + "at line "
                     + exp.getBeginLine() + ", column " + exp.getBeginColumn() + ".");
             System.err
-            .println("         Expansion nested within construct and expansion following construct");
+                    .println("         Expansion nested within construct and expansion following construct");
             System.err.println("         have common prefixes, one of which is: " + image(m1));
             System.err.println("         Consider using a lookahead of " + la + " for nested expansion.");
         }
     }
 
+    List<MatchInfo> generateFirstSet(Expansion exp, int limit, boolean considerSemLa) {
+        List<MatchInfo> overflowedMatches = new ArrayList<>();
+        MatchInfo m = new MatchInfo(limit);
+        List<MatchInfo> partialMatches = new ArrayList<>();
+        partialMatches.add(m);
+        generateFirstSet(partialMatches, exp, overflowedMatches, grammar.getLookaheadLimit(), considerSemLa);
+        return overflowedMatches;
+    }
 
-    //TODO: Clean this up using a visitor pattern. The algorithm will probably
-    // be far easier to understand. (I don't currently understand it.)
-    List<MatchInfo> generateFirstSet(List<MatchInfo> partialMatches, Expansion exp) {
+    /**
+     * Produce a set of all possible prefix matches of the given expansion (with a match length
+     * limit). For example for  {@code <A> (<B> | <C>)? <D>}, will produce {@code [ <A> ] }, {@code
+     * [ <A> <B>, <A> <C> ]} {@code [ <A> <B> <D>, <A> <C> <D> ]}, depending on the length limit.
+     * The return value is only useful in recursive calls, instead the overflowedMatches list is
+     * filled with the matches that reached the max length.
+     *
+     * @param prefixes      List of previous matches that lead up to the expansion. For example in
+     *                      {@code
+     *                      <A> (<B> | <C>)? <D>}, when exploring the expansion for {@code <D>},
+     *                      prefixes will contain the MatchInfos {@code <A> <B>} and {@code <A>
+     *                      <C>}. Each time we encounter a terminal we grow each element of this
+     *                      list by the given terminal.
+     * @param limit         Max length to which the MatchInfos are allowed to grow, past this,
+     *                      they'll be added to overflowedMatches. The algorithm terminates when all
+     *                      prefixes have been added to that list, and this will be its result.
+     * @param considerSemLa If true, semantic lookaheads act as a stop to how far the matches are
+     *                      processed
+     * @return The prefixes that could be completed with this expansion within the match limit.
+     * These will be used as the prefixes to match the next expansion in a sequence.
+     */
+    private static List<MatchInfo> generateFirstSet(List<MatchInfo> prefixes,
+                                                    Expansion exp,
+                                                    List<MatchInfo> overflowedMatches,
+                                                    int limit,
+                                                    boolean considerSemLa) {
+
         if (exp instanceof RegularExpression) {
-            int lookaheadLimit = grammar.getLookaheadLimit();
-            List<MatchInfo> retval = new ArrayList<MatchInfo>();
-            for (MatchInfo partialMatch : partialMatches) {
-                MatchInfo mnew = new MatchInfo(lookaheadLimit);
-                for (int j = 0; j < partialMatch.firstFreeLoc; j++) {
-                    mnew.match[j] = partialMatch.match[j];
-                }
-                mnew.firstFreeLoc = partialMatch.firstFreeLoc;
-                mnew.match[mnew.firstFreeLoc++] = ((RegularExpression) exp).getOrdinal();
-                if (mnew.firstFreeLoc == lookaheadLimit) {
-                    sizeLimitedMatches.add(mnew);
+
+            List<MatchInfo> retval = new ArrayList<>();
+
+            // Append this terminal to every partial match
+            for (MatchInfo partialMatch : prefixes) {
+
+                MatchInfo mnew = partialMatch.cons(exp, limit);
+
+                if (mnew.matchLength() == limit) {
+                    // Means the array of regex ids in mnew is full.
+                    // Add to overflowedMatches so that the caller does not process it
+                    overflowedMatches.add(mnew);
                 } else {
                     retval.add(mnew);
                 }
             }
+
             return retval;
-        } else if (exp instanceof NonTerminal) {
-            BNFProduction prod = ((NonTerminal) exp).getProduction();
-            return generateFirstSet(partialMatches, prod.getExpansion());
+
         } else if (exp instanceof ExpansionChoice) {
-            List<MatchInfo> retval = new ArrayList<MatchInfo>();
-            ExpansionChoice ch = (ExpansionChoice) exp;
-            for (Expansion e : ch.getChoices()) {
-                List<MatchInfo> v = generateFirstSet(partialMatches, e);
-                retval.addAll(v);
+            // union of FIRST of each branch
+
+            List<MatchInfo> retval = new ArrayList<>();
+            for (Expansion branch : ((ExpansionChoice) exp).getChoices()) {
+                List<MatchInfo> branchPrefixes = generateFirstSet(prefixes, branch, overflowedMatches, limit, considerSemLa);
+                retval.addAll(branchPrefixes);
             }
             return retval;
+
         } else if (exp instanceof ExpansionSequence) {
-            List<MatchInfo> v = partialMatches;
-            ExpansionSequence seq = (ExpansionSequence) exp;
-            for (Expansion e : seq.getUnits()) {
-                v = generateFirstSet(v, e);
-                if (v.size() == 0)
+
+            List<MatchInfo> v = prefixes;
+            for (Expansion e : ((ExpansionSequence) exp).getUnits()) {
+
+                // Use the partial matches of each step as input to the next.
+                v = generateFirstSet(v, e, overflowedMatches, limit, considerSemLa);
+                if (v.size() == 0) // means overflowedMatches is full
                     break;
             }
             return v;
+
         } else if (exp instanceof OneOrMore) {
-            List<MatchInfo> retval = new ArrayList<MatchInfo>();
-            List<MatchInfo> v = partialMatches;
-            while (true) {
-                v = generateFirstSet(v, exp.getNestedExpansion());
+
+            List<MatchInfo> retval = new ArrayList<>();
+            List<MatchInfo> v = prefixes;
+            do {
+                v = generateFirstSet(v, exp.getNestedExpansion(), overflowedMatches, limit, considerSemLa);
                 if (v.isEmpty())
                     break;
                 retval.addAll(v);
-            }
+            } while (true);
+
             return retval;
+
         } else if (exp instanceof ZeroOrMore) {
-            List<MatchInfo> retval = new ArrayList<MatchInfo>();
-            retval.addAll(partialMatches);
-            List<MatchInfo> v = partialMatches;
+
+            List<MatchInfo> retval = new ArrayList<>();
+            retval.addAll(prefixes);
+            List<MatchInfo> v = prefixes;
             while (true) {
-                v = generateFirstSet(v, exp.getNestedExpansion());
+                v = generateFirstSet(v, exp.getNestedExpansion(), overflowedMatches, limit, considerSemLa);
                 if (v.size() == 0)
                     break;
                 retval.addAll(v);
             }
             return retval;
+
         } else if (exp instanceof ZeroOrOne) {
-            List<MatchInfo> retval = new ArrayList<MatchInfo>();
-            retval.addAll(partialMatches);
-            retval.addAll(generateFirstSet(partialMatches,  exp.getNestedExpansion()));
+
+            List<MatchInfo> retval = new ArrayList<>();
+            retval.addAll(prefixes);
+            retval.addAll(generateFirstSet(prefixes, exp.getNestedExpansion(), overflowedMatches, limit, considerSemLa));
+
             return retval;
+
+        } else if (exp instanceof NonTerminal) {
+            // simple recursion
+
+            BNFProduction prod = ((NonTerminal) exp).getProduction();
+            return generateFirstSet(prefixes, prod.getExpansion(), overflowedMatches, limit, considerSemLa);
+
         } else if (exp instanceof TryBlock) {
-            return generateFirstSet(partialMatches, exp.getNestedExpansion());
-        }   else if (grammar.considerSemanticLA() && exp instanceof Lookahead
+            // simple recursion
+
+            return generateFirstSet(prefixes, exp.getNestedExpansion(), overflowedMatches, limit, considerSemLa);
+
+        } else if (considerSemLa
+                && exp instanceof Lookahead
                 && ((Lookahead) exp).getSemanticLookahead() != null) {
-            return new ArrayList<MatchInfo>();
-        }  else {
-            return new ArrayList<>(partialMatches);
+
+            return Collections.emptyList();
+
+        } else {
+
+            return prefixes;
+
         }
     }
 
-    public static <U extends Object> void listSplit(List<U> toSplit,
-            List<U> mask, List<U> partInMask, List<U> rest) {
-        OuterLoop: for (int i = 0; i < toSplit.size(); i++) {
-            for (int j = 0; j < mask.size(); j++) {
-                if (toSplit.get(i) == mask.get(j)) {
-                    partInMask.add(toSplit.get(i));
-                    continue OuterLoop;
-                }
-            }
-            rest.add(toSplit.get(i));
+    public static <U> void listSplit(List<U> toSplit, List<U> mask, List<U> partInMask, List<U> rest) {
+        for (U u : toSplit) {
+            if (mask.contains(u))
+                partInMask.add(u);
+            else
+                rest.add(u);
         }
     }
+
     // TODO: Clean up this crap, factor it out to use a visitor pattern as well
     List<MatchInfo> generateFollowSet(List<MatchInfo> partialMatches, Expansion exp, long generation) {
         if (exp.myGeneration == generation) {
@@ -1027,7 +1096,7 @@ public class ParserData {
             ExpansionSequence seq = (ExpansionSequence) exp.getParent();
             List<MatchInfo> v = partialMatches;
             for (int i = exp.getIndex() + 1; i < seq.getChildCount(); i++) {
-                v = generateFirstSet(v, (Expansion) seq.getChild(i));
+                v = generateFirstSet(v, (Expansion) seq.getChild(i), grammar.getLookaheadLimit());
                 if (v.size() == 0)
                     return v;
             }
@@ -1052,7 +1121,7 @@ public class ParserData {
             moreMatches.addAll(partialMatches);
             List<MatchInfo> v = partialMatches;
             while (true) {
-                v = generateFirstSet(v, exp);
+                v = generateFirstSet(v, exp, grammar.getLookaheadLimit());
                 if (v.size() == 0)
                     break;
                 moreMatches.addAll(v);
@@ -1077,12 +1146,36 @@ public class ParserData {
             return generateFollowSet(partialMatches, (Expansion) exp.getParent(), generation);
         }
     }
+
+    /**
+     * Represents a "match" of an expansion as a sequence of terminals. You can think of this as a
+     * {@code List<RegularExpression>}, it's just implemented as an array of ints (I assume for
+     * speed or whatever).
+     */
     static final class MatchInfo {
+        /**
+         * Array of regex ids in sequence. Only items in [0,firstFreeLoc[ are set.
+         */
         int[] match;
         int firstFreeLoc;
 
         MatchInfo(int lookaheadLimit) {
             this.match = new int[lookaheadLimit];
+        }
+
+        public int matchLength() {
+            return firstFreeLoc;
+        }
+
+        private MatchInfo cons(Expansion exp, int lookaheadLimit) {
+            MatchInfo mnew = new MatchInfo(lookaheadLimit);
+            assert lookaheadLimit > firstFreeLoc;
+            if (firstFreeLoc >= 0) {
+                System.arraycopy(match, 0, mnew.match, 0, firstFreeLoc);
+            }
+            mnew.firstFreeLoc = firstFreeLoc;
+            mnew.match[mnew.firstFreeLoc++] = exp.getOrdinal();
+            return mnew;
         }
     }
 }
